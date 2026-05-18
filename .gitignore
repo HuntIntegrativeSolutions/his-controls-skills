@@ -1,0 +1,6 @@
+# Git ignore
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*~

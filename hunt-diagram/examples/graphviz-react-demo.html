@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Graphviz → SVG → React Demo | Hunt Integrative Solutions</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: #f0f6fc; }
+  header span { font-size: 12px; color: #8b949e; }
+  .badge {
+    background: #388bfd22;
+    border: 1px solid #388bfd55;
+    color: #79c0ff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .toolbar {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 8px 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .toolbar button {
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s;
+  }
+  .toolbar button:hover { background: #30363d; }
+  .toolbar button.active {
+    background: #388bfd33;
+    border-color: #388bfd;
+    color: #79c0ff;
+  }
+  .toolbar .sep { width: 1px; height: 20px; background: #30363d; margin: 0 4px; }
+  .toolbar label { font-size: 12px; color: #8b949e; }
+  #zoom-level { font-size: 12px; color: #8b949e; min-width: 40px; }
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  #canvas {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #0d1117;
+    background-image:
+      radial-gradient(circle, #30363d 1px, transparent 1px);
+    background-size: 24px 24px;
+    cursor: grab;
+  }
+  #canvas:active { cursor: grabbing; }
+  #svg-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(1);
+    transition: none;
+  }
+  #svg-container svg {
+    display: block;
+    max-width: none;
+  }
+  #sidebar {
+    width: 300px;
+    background: #161b22;
+    border-left: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid #30363d;
+  }
+  .sidebar-tabs button {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #8b949e;
+    padding: 10px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .sidebar-tabs button.active {
+    color: #f0f6fc;
+    border-bottom-color: #388bfd;
+  }
+  .tab-content { display: none; flex: 1; overflow: auto; padding: 12px; }
+  .tab-content.active { display: block; }
+  #dot-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    background: #0d1117;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 11px;
+    resize: none;
+    line-height: 1.5;
+  }
+  .render-btn {
+    width: 100%;
+    margin-top: 8px;
+    background: #238636;
+    border: 1px solid #2ea043;
+    color: #fff;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.15s;
+  }
+  .render-btn:hover { background: #2ea043; }
+  .info-block { font-size: 12px; line-height: 1.7; color: #8b949e; }
+  .info-block strong { color: #c9d1d9; display: block; margin: 12px 0 4px; }
+  .info-block code {
+    background: #21262d;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #79c0ff;
+    font-size: 11px;
+  }
+  .preset-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-bottom: 6px;
+    transition: background 0.15s;
+  }
+  .preset-btn:hover { background: #30363d; border-color: #388bfd55; }
+  .preset-btn small { display: block; color: #8b949e; font-size: 10px; margin-top: 2px; }
+  #status {
+    font-size: 11px;
+    padding: 6px 16px;
+    background: #161b22;
+    border-top: 1px solid #30363d;
+    color: #8b949e;
+    flex-shrink: 0;
+  }
+  #status.error { color: #f85149; }
+  #status.ok { color: #3fb950; }
+  .spinner {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 2px solid #30363d;
+    border-top-color: #388bfd;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Graphviz → SVG → React Pipeline Demo</h1>
+  <span>Hunt Integrative Solutions LLC</span>
+  <span class="badge">@viz-js/viz</span>
+  <span class="badge">Interactive SVG</span>
+</header>
+
+<div class="toolbar">
+  <button onclick="zoomIn()">+ Zoom In</button>
+  <button onclick="zoomOut()">- Zoom Out</button>
+  <button onclick="resetZoom()">Reset</button>
+  <button onclick="fitToScreen()">Fit</button>
+  <div class="sep"></div>
+  <label>Zoom:</label>
+  <span id="zoom-level">100%</span>
+  <div class="sep"></div>
+  <button onclick="exportSVG()">Export SVG</button>
+  <button onclick="exportPNG()">Export PNG</button>
+</div>
+
+<div class="main">
+  <div id="canvas">
+    <div id="svg-container">
+      <div id="loading" style="color:#8b949e;padding:40px;font-size:13px;">
+        <span class="spinner"></span>Loading Graphviz engine...
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="sidebar-tabs">
+      <button class="active" onclick="switchTab('editor', this)">DOT Editor</button>
+      <button onclick="switchTab('presets', this)">Presets</button>
+      <button onclick="switchTab('info', this)">Info</button>
+    </div>
+
+    <div id="tab-editor" class="tab-content active">
+      <textarea id="dot-editor" spellcheck="false"></textarea>
+      <button class="render-btn" onclick="renderDot()">Render Graph</button>
+    </div>
+
+    <div id="tab-presets" class="tab-content">
+      <button class="preset-btn" onclick="loadPreset('multiagent')">
+        Multi-Agent Claude Workflow
+        <small>Orchestrator → Specialists → Tools</small>
+      </button>
+      <button class="preset-btn" onclick="loadPreset('huntpack')">
+        Hunt Industrial Pack Architecture
+        <small>AOIs, HMI, SCADA, PLC layers</small>
+      </button>
+      <button class="preset-btn" onclick="loadPreset('openclaw')">
+        OpenClaw / WhatsApp Pipeline
+        <small>Message routing & agent flow</small>
+      </button>
+      <button class="preset-btn" onclick="loadPreset('plc')">
+        PLC AOI Logic Flow
+        <small>Inputs → Logic → Outputs with safety</small>
+      </button>
+    </div>
+
+    <div id="tab-info" class="tab-content">
+      <div class="info-block">
+        <strong>Pipeline</strong>
+        Claude generates DOT code → <code>@viz-js/viz</code> renders to SVG → embedded in HTML/React with zoom/pan.
+        <strong>Zoom &amp; Pan</strong>
+        Scroll wheel to zoom. Click + drag to pan. Use toolbar buttons or keyboard shortcuts.
+        <strong>Keyboard</strong>
+        <code>+/-</code> zoom &nbsp; <code>F</code> fit &nbsp; <code>R</code> reset &nbsp; <code>Ctrl+Enter</code> render
+        <strong>Export</strong>
+        SVG exports as vector (scalable). PNG renders at 2x resolution for crisp prints.
+        <strong>React Integration</strong>
+        In a React app, wrap the SVG string in <code>dangerouslySetInnerHTML</code> or use an <code>&lt;img src="data:image/svg+xml..."&gt;</code> tag. Add <code>react-zoom-pan-pinch</code> for touch support.
+      </div>
+    </div>
+
+    <div id="status">Ready</div>
+  </div>
+</div>
+
+<script type="module">
+// ─── Load viz.js from CDN ────────────────────────────────────────────────────
+import { instance } from 'https://cdn.jsdelivr.net/npm/@viz-js/viz@3.11.0/+esm';
+
+let viz = null;
+let currentScale = 1;
+let panX = 0, panY = 0;
+let isPanning = false;
+let startX, startY;
+
+// ─── DOT Presets ─────────────────────────────────────────────────────────────
+const PRESETS = {
+
+multiagent: `digraph MultiAgentClaude {
+  graph [
+    label="Multi-Agent Claude Workflow\\nHunt Integrative Solutions"
+    labelloc=t fontsize=18 fontname="Segoe UI"
+    bgcolor="#0d1117" fontcolor="#e6edf3"
+    rankdir=TB splines=ortho pad=0.5
+  ]
+  node [fontname="Segoe UI" fontsize=11 style=filled shape=box penwidth=1.5]
+  edge [fontname="Segoe UI" fontsize=9 color="#444c56" penwidth=1.2]
+
+  subgraph cluster_input {
+    label="Input Layer" fontcolor="#79c0ff" color="#388bfd" style=rounded fontsize=12
+    USER [label="User / Client\\n(WhatsApp / Web)" fillcolor="#1c2128" fontcolor="#e6edf3" color="#388bfd"]
+    TRIGGER [label="Trigger\\n(webhook / cron)" fillcolor="#1c2128" fontcolor="#e6edf3" color="#388bfd"]
+  }
+
+  subgraph cluster_orch {
+    label="Orchestration Layer" fontcolor="#ffa657" color="#d29922" style=rounded fontsize=12
+    ORCH [label="Orchestrator Agent\\nclaude-sonnet-4-6" shape=octagon fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922" penwidth=2]
+    ROUTER [label="Intent Router\\n(classify + dispatch)" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+  }
+
+  subgraph cluster_agents {
+    label="Specialist Agents" fontcolor="#3fb950" color="#238636" style=rounded fontsize=12
+    rankdir=LR
+    DOC [label="Doc Agent\\nMarkdown / Reports" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+    CODE [label="Code Agent\\nPython / Ladder Logic" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+    CAL [label="Calendar Agent\\nGoogle Cal MCP" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+    DIAG [label="Diagram Agent\\nGraphviz / React Flow" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+  }
+
+  subgraph cluster_tools {
+    label="Tool Layer (MCP)" fontcolor="#d2a8ff" color="#8957e5" style=rounded fontsize=12
+    FS [label="Filesystem\\nRead / Write" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+    GCAL [label="Google Calendar\\nEvents API" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+    WA [label="WhatsApp\\nBaileys / OpenClaw" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+    SEARCH [label="Web Search\\nContext gathering" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+  }
+
+  subgraph cluster_output {
+    label="Output Layer" fontcolor="#79c0ff" color="#388bfd" style=rounded fontsize=12
+    OUT_MSG [label="Message / Report" fillcolor="#1c2128" fontcolor="#e6edf3" color="#388bfd"]
+    OUT_FILE [label="File / Artifact" fillcolor="#1c2128" fontcolor="#e6edf3" color="#388bfd"]
+    OUT_EVENT [label="Calendar Event" fillcolor="#1c2128" fontcolor="#e6edf3" color="#388bfd"]
+  }
+
+  USER -> ORCH [color="#388bfd" penwidth=2 label="prompt"]
+  TRIGGER -> ORCH [color="#d29922" label="event"]
+  ORCH -> ROUTER [color="#ffa657"]
+  ROUTER -> DOC [label="doc task"]
+  ROUTER -> CODE [label="code task"]
+  ROUTER -> CAL [label="schedule task"]
+  ROUTER -> DIAG [label="diagram task"]
+  DOC -> FS; CODE -> FS
+  CAL -> GCAL; ORCH -> WA
+  DIAG -> FS
+  SEARCH -> ORCH [dir=back label="context" style=dashed]
+  DOC -> OUT_MSG; DOC -> OUT_FILE
+  CODE -> OUT_FILE
+  CAL -> OUT_EVENT
+  DIAG -> OUT_FILE
+  OUT_MSG -> USER [color="#388bfd" penwidth=2 label="response"]
+}`,
+
+huntpack: `digraph HuntIndustrialPack {
+  graph [
+    label="Hunt Industrial Pack\\nArchitecture Overview"
+    labelloc=t fontsize=18 fontname="Segoe UI"
+    bgcolor="#0d1117" fontcolor="#e6edf3"
+    rankdir=TB splines=ortho pad=0.6
+  ]
+  node [fontname="Segoe UI" fontsize=11 style=filled shape=box penwidth=1.5]
+  edge [color="#444c56" penwidth=1.2 fontname="Segoe UI" fontsize=9]
+
+  subgraph cluster_field {
+    label="Field Layer" color="#d29922" fontcolor="#ffa657" style=rounded fontsize=12
+    SENS [label="Sensors\\n(4-20mA, discrete)" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+    ACT  [label="Actuators\\n(VFDs, valves, motors)" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+    SAFE [label="Safety Devices\\n(E-Stop, STO, SIL)" fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633" penwidth=2]
+  }
+
+  subgraph cluster_plc {
+    label="PLC Layer (Studio 5000)" color="#238636" fontcolor="#3fb950" style=rounded fontsize=12
+    AOI_MOTOR  [label="AOI: Motor\\nStart/Stop/Fault/Seal-in" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+    AOI_PID    [label="AOI: PID Loop\\nSetpoint/CV/Cascade" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+    AOI_ALARM  [label="AOI: Alarm\\nLevel/Priority/ACK" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+    AOI_SAFETY [label="AOI: Safety Interlock\\nPermissive chain" fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633" penwidth=2]
+    TAGS       [label="Tag Database\\nUDT / Base Tags" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+  }
+
+  subgraph cluster_comms {
+    label="Communication Layer" color="#8957e5" fontcolor="#d2a8ff" style=rounded fontsize=12
+    ENIP  [label="EtherNet/IP\\nCIP backplane" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+    OPC   [label="OPC-UA Server\\nKepware / Studio" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+    MOD   [label="Modbus TCP\\nLegacy devices" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+  }
+
+  subgraph cluster_hmi {
+    label="HMI / SCADA Layer" color="#388bfd" fontcolor="#79c0ff" style=rounded fontsize=12
+    HMI    [label="Panel View\\nLocal HMI" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+    SCADA  [label="FactoryTalk View SE\\nSCADA Server" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+    HIST   [label="Historian\\nProcess data log" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+  }
+
+  subgraph cluster_cloud {
+    label="Cloud / AI Layer" color="#d29922" fontcolor="#ffa657" style=rounded fontsize=12
+    DASH   [label="Web Dashboard\\nReal-time KPIs" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+    AI     [label="Claude AI\\nAnomaly / Reports" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+    ALERT  [label="WhatsApp Alerts\\nOpenClaw pipeline" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+  }
+
+  SENS -> AOI_MOTOR [label="I/O scan"]
+  SENS -> AOI_PID
+  SAFE -> AOI_SAFETY [color="#da3633" penwidth=2 label="interlock"]
+  AOI_MOTOR -> TAGS; AOI_PID -> TAGS
+  AOI_ALARM -> TAGS; AOI_SAFETY -> TAGS
+  TAGS -> ACT [label="output write"]
+  TAGS -> ENIP -> OPC
+  MOD -> ENIP
+  OPC -> SCADA; OPC -> HMI; OPC -> HIST
+  SCADA -> DASH [label="HTTPS"]
+  HIST -> AI [label="batch export"]
+  AI -> ALERT [label="trigger"]
+  AOI_ALARM -> SCADA [label="alarm feed" color="#f85149"]
+}`,
+
+openclaw: `digraph OpenClawPipeline {
+  graph [
+    label="OpenClaw — WhatsApp AI Pipeline"
+    labelloc=t fontsize=18 fontname="Segoe UI"
+    bgcolor="#0d1117" fontcolor="#e6edf3"
+    rankdir=LR splines=curved pad=0.5
+  ]
+  node [fontname="Segoe UI" fontsize=11 style=filled shape=box penwidth=1.5 margin="0.2,0.1"]
+  edge [color="#444c56" penwidth=1.2 fontname="Segoe UI" fontsize=9]
+
+  WA_IN  [label="WhatsApp\\nIncoming Message" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636" shape=parallelogram]
+  BAIL   [label="Baileys\\nWS Client" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+  HOOK   [label="Webhook\\nHandler" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+  AUTH   [label="Auth Check\\n(allowed senders)" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922" shape=diamond]
+  PARSE  [label="Message Parser\\ntext / media / cmd" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+  CLAUDE [label="Claude API\\nclaude-sonnet-4-6" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636" shape=octagon penwidth=2]
+  MEM    [label="Session Memory\\nper-user context" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+  TOOLS  [label="MCP Tools\\n(FS, Calendar, Search)" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5"]
+  FORMAT [label="Response Formatter\\nMarkdown → WA format" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+  WA_OUT [label="WhatsApp\\nOutgoing Message" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636" shape=parallelogram]
+  LOG    [label="Audit Log\\nconversations.json" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+  REJECT [label="Rejected\\n(silent drop)" fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+
+  WA_IN -> BAIL -> HOOK -> AUTH
+  AUTH -> PARSE [label="allowed" color="#3fb950"]
+  AUTH -> REJECT [label="denied" color="#f85149"]
+  PARSE -> CLAUDE
+  MEM -> CLAUDE [label="context" style=dashed]
+  CLAUDE -> MEM [label="update" style=dashed]
+  CLAUDE -> TOOLS [label="tool call" style=dashed color="#d2a8ff"]
+  TOOLS -> CLAUDE [label="tool result" style=dashed color="#d2a8ff"]
+  CLAUDE -> FORMAT -> WA_OUT -> WA_IN [style=invis]
+  FORMAT -> WA_OUT [constraint=false]
+  WA_OUT -> BAIL [label="send" constraint=false color="#3fb950"]
+  PARSE -> LOG [style=dashed color="#444c56"]
+  CLAUDE -> LOG [style=dashed color="#444c56"]
+}`,
+
+plc: `digraph PLCMotorAOI {
+  graph [
+    label="AOI: Motor Control Logic\\nHunt Industrial Pack"
+    labelloc=t fontsize=16 fontname="Segoe UI"
+    bgcolor="#0d1117" fontcolor="#e6edf3"
+    rankdir=TB splines=ortho pad=0.5
+  ]
+  node [fontname="Segoe UI" fontsize=11 style=filled shape=box penwidth=1.5]
+  edge [color="#444c56" penwidth=1.2 fontname="Segoe UI" fontsize=9]
+
+  START_CMD   [label="StartCmd\\n(BOOL input)" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+  STOP_CMD    [label="StopCmd\\n(BOOL input)" fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+  ESTOP       [label="EStop\\n(BOOL — NC contact)" fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633" penwidth=2]
+  FAULT_IN    [label="FaultInput\\n(overload / thermal)" fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+  PERM_OK     [label="PermissiveChain\\n(all interlocks clear)" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922" shape=diamond]
+  SEAL_IN     [label="Seal-In Latch\\n(XIC RunFeedback)" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+  FAULT_LATCH [label="Fault Latch\\n(OSR + latch bit)" fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+  OTE_RUN     [label="RunOutput\\n(OTE — coil to MCC)" fillcolor="#1a0f2e" fontcolor="#d2a8ff" color="#8957e5" penwidth=2]
+  OTE_FAULT   [label="FaultOutput\\n(OTE — fault indicator)" fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+  ALARM       [label="Alarm AOI\\nLevel 2 / Priority High" fillcolor="#2d2208" fontcolor="#ffa657" color="#d29922"]
+  HMI_STATUS  [label="HMI Status Tag\\nRunning / Faulted / Ready" fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+
+  START_CMD -> PERM_OK [label="XIC"]
+  ESTOP -> PERM_OK [label="XIC (NC)" color="#f85149"]
+  FAULT_IN -> FAULT_LATCH [label="OSR"]
+  FAULT_LATCH -> PERM_OK [label="XIC (clear)" style=dashed]
+  PERM_OK -> SEAL_IN [label="Y — run permitted" color="#3fb950"]
+  PERM_OK -> OTE_FAULT [label="N — block" color="#f85149"]
+  STOP_CMD -> SEAL_IN [label="XIO (NC)" color="#f85149"]
+  SEAL_IN -> OTE_RUN [label="latch coil" color="#d2a8ff" penwidth=2]
+  OTE_RUN -> SEAL_IN [label="RunFeedback\\n(seal-in)" style=dashed color="#79c0ff"]
+  FAULT_LATCH -> OTE_FAULT [label="latch" color="#f85149"]
+  OTE_FAULT -> ALARM [label="trigger"]
+  OTE_RUN -> HMI_STATUS [label="Running=1"]
+  OTE_FAULT -> HMI_STATUS [label="Faulted=1"]
+}`
+};
+
+// ─── Init viz ────────────────────────────────────────────────────────────────
+async function initViz() {
+  try {
+    viz = await instance();
+    document.getElementById('dot-editor').value = PRESETS.multiagent;
+    setStatus('Graphviz engine loaded. Rendering...', '');
+    await renderDot();
+  } catch(e) {
+    setStatus('Failed to load viz.js: ' + e.message, 'error');
+  }
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+window.renderDot = async function() {
+  if (!viz) { setStatus('Engine not ready', 'error'); return; }
+  const dot = document.getElementById('dot-editor').value.trim();
+  if (!dot) return;
+  setStatus('<span class="spinner"></span>Rendering...', '');
+  try {
+    const svgStr = viz.renderString(dot, { format: 'svg' });
+    const container = document.getElementById('svg-container');
+    container.innerHTML = svgStr;
+    const svg = container.querySelector('svg');
+    if (svg) {
+      svg.removeAttribute('width');
+      svg.removeAttribute('height');
+      svg.style.minWidth = '400px';
+      // Colorize the SVG text for dark mode
+      svg.querySelectorAll('text').forEach(t => {
+        if (!t.getAttribute('fill') || t.getAttribute('fill') === '#000000') {
+          t.setAttribute('fill', '#e6edf3');
+        }
+      });
+    }
+    resetZoom();
+    fitToScreen();
+    setStatus('Rendered successfully — ' + new Date().toLocaleTimeString(), 'ok');
+  } catch(e) {
+    setStatus('DOT parse error: ' + e.message, 'error');
+  }
+};
+
+// ─── Presets ─────────────────────────────────────────────────────────────────
+window.loadPreset = function(name) {
+  document.getElementById('dot-editor').value = PRESETS[name];
+  switchTab('editor', document.querySelector('.sidebar-tabs button'));
+  renderDot();
+};
+
+// ─── Zoom / Pan ──────────────────────────────────────────────────────────────
+function applyTransform() {
+  const c = document.getElementById('svg-container');
+  c.style.transform = `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${currentScale})`;
+  document.getElementById('zoom-level').textContent = Math.round(currentScale * 100) + '%';
+}
+
+window.zoomIn  = () => { currentScale = Math.min(currentScale * 1.2, 8); applyTransform(); };
+window.zoomOut = () => { currentScale = Math.max(currentScale / 1.2, 0.1); applyTransform(); };
+window.resetZoom = () => { currentScale = 1; panX = 0; panY = 0; applyTransform(); };
+window.fitToScreen = function() {
+  const canvas = document.getElementById('canvas');
+  const svg = document.querySelector('#svg-container svg');
+  if (!svg) return;
+  const vb = svg.viewBox.baseVal;
+  if (!vb || vb.width === 0) return;
+  const scaleX = (canvas.clientWidth  - 60) / vb.width;
+  const scaleY = (canvas.clientHeight - 60) / vb.height;
+  currentScale = Math.min(scaleX, scaleY, 2);
+  panX = 0; panY = 0;
+  applyTransform();
+};
+
+// Mouse wheel zoom
+document.getElementById('canvas').addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  currentScale = Math.min(Math.max(currentScale * factor, 0.1), 8);
+  applyTransform();
+}, { passive: false });
+
+// Pan
+const canvas = document.getElementById('canvas');
+canvas.addEventListener('mousedown', e => {
+  if (e.target.closest('#svg-container')) {
+    isPanning = true;
+    startX = e.clientX - panX;
+    startY = e.clientY - panY;
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  panX = e.clientX - startX;
+  panY = e.clientY - startY;
+  applyTransform();
+});
+window.addEventListener('mouseup', () => { isPanning = false; });
+
+// Keyboard shortcuts
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA') {
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); renderDot(); }
+    return;
+  }
+  if (e.key === '+' || e.key === '=') zoomIn();
+  if (e.key === '-') zoomOut();
+  if (e.key === 'r' || e.key === 'R') resetZoom();
+  if (e.key === 'f' || e.key === 'F') fitToScreen();
+});
+
+// ─── Export ──────────────────────────────────────────────────────────────────
+window.exportSVG = function() {
+  const svg = document.querySelector('#svg-container svg');
+  if (!svg) return;
+  const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'hunt-diagram.svg'; a.click();
+};
+
+window.exportPNG = function() {
+  const svg = document.querySelector('#svg-container svg');
+  if (!svg) return;
+  const vb = svg.viewBox.baseVal;
+  const w = (vb.width || 800) * 2, h = (vb.height || 600) * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, w, h);
+  const img = new Image();
+  const svgData = new Blob([svg.outerHTML], {type:'image/svg+xml'});
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, w, h);
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png');
+    a.download = 'hunt-diagram.png'; a.click();
+  };
+  img.src = URL.createObjectURL(svgData);
+};
+
+// ─── UI helpers ──────────────────────────────────────────────────────────────
+window.switchTab = function(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelectorAll('.sidebar-tabs button')[name === 'editor' ? 0 : name === 'presets' ? 1 : 2].classList.add('active');
+};
+
+function setStatus(msg, cls) {
+  const s = document.getElementById('status');
+  s.innerHTML = msg;
+  s.className = cls;
+}
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
+initViz();
+</script>
+</body>
+</html>

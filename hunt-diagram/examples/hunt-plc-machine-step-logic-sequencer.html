@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Machine Step Logic Sequencer — HIS Diagram</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .his-badge {
+    background: #238636;
+    border: 1px solid #2ea043;
+    color: #3fb950;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  header h1 { font-size: 15px; font-weight: 600; color: #f0f6fc; }
+  header span { font-size: 12px; color: #8b949e; }
+  .badge {
+    background: #388bfd22;
+    border: 1px solid #388bfd55;
+    color: #79c0ff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .toolbar {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 8px 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .toolbar button {
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s;
+  }
+  .toolbar button:hover { background: #30363d; }
+  .toolbar .sep { width: 1px; height: 20px; background: #30363d; margin: 0 4px; }
+  .toolbar label { font-size: 12px; color: #8b949e; }
+  #zoom-level { font-size: 12px; color: #8b949e; min-width: 40px; }
+  .main { display: flex; flex: 1; overflow: hidden; }
+  #canvas {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #0d1117;
+    background-image: radial-gradient(circle, #30363d 1px, transparent 1px);
+    background-size: 24px 24px;
+    cursor: grab;
+  }
+  #canvas:active { cursor: grabbing; }
+  #svg-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(1);
+    transition: none;
+  }
+  #svg-container svg { display: block; max-width: none; }
+  #sidebar {
+    width: 300px;
+    background: #161b22;
+    border-left: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .sidebar-tabs { display: flex; border-bottom: 1px solid #30363d; }
+  .sidebar-tabs button {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #8b949e;
+    padding: 10px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .sidebar-tabs button.active { color: #f0f6fc; border-bottom-color: #388bfd; }
+  .tab-content { display: none; flex: 1; overflow: auto; padding: 12px; }
+  .tab-content.active { display: block; }
+  #dot-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    background: #0d1117;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 11px;
+    resize: none;
+    line-height: 1.5;
+  }
+  .render-btn {
+    width: 100%;
+    margin-top: 8px;
+    background: #238636;
+    border: 1px solid #2ea043;
+    color: #fff;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.15s;
+  }
+  .render-btn:hover { background: #2ea043; }
+  .info-block { font-size: 12px; line-height: 1.7; color: #8b949e; }
+  .info-block strong { color: #c9d1d9; display: block; margin: 12px 0 4px; }
+  .info-block code {
+    background: #21262d; padding: 1px 5px; border-radius: 4px;
+    font-family: monospace; color: #79c0ff; font-size: 11px;
+  }
+  .preset-btn {
+    display: block; width: 100%; text-align: left;
+    background: #21262d; border: 1px solid #30363d;
+    color: #c9d1d9; padding: 8px 10px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; margin-bottom: 6px;
+    transition: background 0.15s;
+  }
+  .preset-btn:hover { background: #30363d; border-color: #238636; color: #3fb950; }
+  .preset-btn small { display: block; color: #8b949e; font-size: 10px; margin-top: 2px; }
+  #status {
+    font-size: 11px; padding: 6px 16px;
+    background: #161b22; border-top: 1px solid #30363d;
+    color: #8b949e; flex-shrink: 0;
+    display: flex; justify-content: space-between;
+  }
+  #status.error { color: #f85149; }
+  #status.ok { color: #3fb950; }
+  .spinner {
+    display: inline-block; width: 10px; height: 10px;
+    border: 2px solid #30363d; border-top-color: #3fb950;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    margin-right: 6px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="his-badge">HIS</span>
+  <h1>Machine Step Logic Sequencer</h1>
+  <span>Hunt Integrative Solutions LLC</span>
+  <span class="badge">@viz-js/viz</span>
+  <span class="badge">PLC / Step Logic</span>
+</header>
+
+<div class="toolbar">
+  <button onclick="zoomIn()">+ Zoom In</button>
+  <button onclick="zoomOut()">- Zoom Out</button>
+  <button onclick="resetZoom()">Reset</button>
+  <button onclick="fitToScreen()">Fit</button>
+  <div class="sep"></div>
+  <label>Zoom:</label>
+  <span id="zoom-level">100%</span>
+  <div class="sep"></div>
+  <button onclick="exportSVG()">Export SVG</button>
+  <button onclick="exportPNG()">Export PNG</button>
+</div>
+
+<div class="main">
+  <div id="canvas">
+    <div id="svg-container">
+      <div id="loading" style="color:#8b949e;padding:40px;font-size:13px;">
+        <span class="spinner"></span>Loading Graphviz engine...
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="sidebar-tabs">
+      <button class="active" onclick="switchTab('editor', this)">DOT Editor</button>
+      <button onclick="switchTab('presets', this)">Presets</button>
+      <button onclick="switchTab('info', this)">Info</button>
+    </div>
+
+    <div id="tab-editor" class="tab-content active">
+      <textarea id="dot-editor" spellcheck="false"></textarea>
+      <button class="render-btn" onclick="renderDot()">Render Graph</button>
+    </div>
+
+    <div id="tab-presets" class="tab-content">
+      <button class="preset-btn" onclick="loadPreset('main')">
+        Machine Step Logic Sequencer
+        <small>Full cycle: Idle → Clamp → Advance → Process → Retract → Home</small>
+      </button>
+    </div>
+
+    <div id="tab-info" class="tab-content">
+      <div class="info-block">
+        <strong>Hunt Integrative Solutions LLC</strong>
+        HIS Diagram Standard v1.0 — Machine Step Logic Sequencer.
+        <strong>Step Sequence</strong>
+        Step 0 Idle → 10 Wait Part → 20 Clamp → 30 Advance → 40 Process/Dwell → 50 Retract → 60 Unclamp → 70 Return Home → 0
+        <strong>Safety</strong>
+        E-Stop and Guard Door feed Safety Relay SR1. XIO SR1_OK on any step transition forces Step 99 Fault.
+        <strong>Fault Reset</strong>
+        HMI Fault Reset PB sets bFaultReset, OTU bFaulted, MOV 0 nStep → returns to Step 0.
+        <strong>Edge Legend</strong>
+        Green solid = enable/permissive · Gray = normal transition · Red heavy = safety kill · Red dotted = overtime fault · Blue dashed = fault reset · Cyan dashed = HMI data
+        <strong>Keyboard</strong>
+        <code>+/-</code> zoom &nbsp; <code>F</code> fit &nbsp; <code>R</code> reset &nbsp; <code>Ctrl+Enter</code> render
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="status">
+  <span id="status-text">Ready</span>
+  <span>Hunt Integrative Solutions LLC</span>
+</div>
+
+<script type="module">
+import { instance } from 'https://cdn.jsdelivr.net/npm/@viz-js/viz@3.11.0/+esm';
+
+let viz = null;
+let currentScale = 1;
+let panX = 0, panY = 0;
+let isPanning = false;
+let startX, startY;
+
+const DIAGRAMS = {
+  main: `digraph HuntDiagram {
+    label="Hunt Integrative Solutions LLC\\nMachine Step Logic Sequencer — 2026-03-19"
+    labelloc="t"
+    fontname="Segoe UI"
+    fontsize=16
+    fontcolor="#8b949e"
+    bgcolor="#0d1117"
+    rankdir=TB
+    splines=spline
+    nodesep=0.7
+    ranksep=1.0
+    node [fontname="Segoe UI" fontsize=11 style="filled,rounded" penwidth=1.5]
+    edge [fontname="Segoe UI" fontsize=9 color="#8b949e"]
+
+    subgraph cluster_field {
+        label="Field Inputs"
+        style=filled
+        fillcolor="#0a1a0e"
+        color="#238636"
+        fontcolor="#3fb950"
+        fontname="Segoe UI"
+        fontsize=11
+
+        Start_PB [label="Start PB\\nMCH_Start_PB"   shape=parallelogram fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Home_SW  [label="Home Sensor\\nMCH_Home_SW"  shape=parallelogram fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Part_SW  [label="Part Present\\nMCH_Part_SW" shape=parallelogram fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Adv_LS   [label="Adv Limit SW\\nMCH_Adv_LS" shape=parallelogram fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Ret_LS   [label="Ret Limit SW\\nMCH_Ret_LS"  shape=parallelogram fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+    }
+
+    subgraph cluster_safety {
+        label="Safety Circuit"
+        style=filled
+        fillcolor="#2a1010"
+        color="#da3633"
+        fontcolor="#f85149"
+        fontname="Segoe UI"
+        fontsize=11
+
+        EStop      [label="E-Stop Chain\\nMCH_EStop_STS" shape=octagon fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+        GuardDoor  [label="Guard Door\\nMCH_Door_STS"    shape=octagon fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+        SafetyRelay [label="Safety Relay\\nSR1_OK"       shape=octagon fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+    }
+
+    subgraph cluster_plc {
+        label="PLC Step Sequencer  |  Tag: nStep (INT)"
+        style=filled
+        fillcolor="#0a1810"
+        color="#238636"
+        fontcolor="#3fb950"
+        fontname="Segoe UI"
+        fontsize=11
+
+        Step0     [label="STEP 0\\nIDLE / HOME"                         shape=ellipse  fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Step10    [label="STEP 10\\nWAIT FOR PART"                      shape=box      fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Step20    [label="STEP 20\\nCLAMP\\nOTL MCH_Clamp_OTE"         shape=box      fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Step30    [label="STEP 30\\nADVANCE\\nOTE MCH_Adv_OTE"         shape=box      fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Step40    [label="STEP 40\\nPROCESS / DWELL\\nTON MCH_Dwell_TMR" shape=box    fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Step50    [label="STEP 50\\nRETRACT\\nOTE MCH_Ret_OTE"         shape=box      fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Step60    [label="STEP 60\\nUNCLAMP\\nOTU MCH_Clamp_OTE"       shape=box      fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Step70    [label="STEP 70\\nRETURN HOME"                        shape=box      fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        StepFault [label="STEP 99\\nFAULT / STOP"                      shape=diamond  fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+    }
+
+    subgraph cluster_outputs {
+        label="Output Coils / Actuators"
+        style=filled
+        fillcolor="#0a1810"
+        color="#238636"
+        fontcolor="#3fb950"
+        fontname="Segoe UI"
+        fontsize=11
+
+        Clamp_OTE   [label="Clamp Solenoid\\nMCH_Clamp_OTE"    shape=box fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Advance_OTE [label="Advance Solenoid\\nMCH_Adv_OTE"    shape=box fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        Retract_OTE [label="Retract Solenoid\\nMCH_Ret_OTE"    shape=box fillcolor="#0d2112" fontcolor="#3fb950" color="#238636"]
+        FaultLight  [label="Fault Pilot Light\\nMCH_Fault_OTE" shape=box fillcolor="#3d1a1a" fontcolor="#f85149" color="#da3633"]
+    }
+
+    subgraph cluster_hmi {
+        label="HMI — FactoryTalk View SE"
+        style=filled
+        fillcolor="#131a24"
+        color="#388bfd"
+        fontcolor="#79c0ff"
+        fontname="Segoe UI"
+        fontsize=11
+
+        HMI_Step  [label="Step Display\\nnStep_HMI"     shape=invhouse fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+        HMI_Fault [label="Fault Banner\\nMCH_Fault_MSG" shape=invhouse fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+        HMI_Reset [label="Fault Reset PB\\nbFaultReset" shape=invhouse fillcolor="#1c2128" fontcolor="#79c0ff" color="#388bfd"]
+    }
+
+    EStop      -> SafetyRelay [label="XIC MCH_EStop_STS" color="#f85149" penwidth=2.5]
+    GuardDoor  -> SafetyRelay [label="XIC MCH_Door_STS"  color="#f85149" penwidth=2.5]
+    SafetyRelay -> StepFault  [label="XIO SR1_OK" color="#f85149" penwidth=2.5]
+
+    Step0  -> Step10 [label="XIC SR1_OK\\nXIC MCH_Home_SW\\nOSR bStart_OSR" color="#3fb950" penwidth=1.5]
+    Step10 -> Step20 [label="XIC MCH_Part_SW\\nEQU nStep 10"                color="#8b949e"]
+    Step20 -> Step30 [label="TON MCH_Clamp_TMR.DN\\nEQU nStep 20"           color="#8b949e"]
+    Step30 -> Step40 [label="XIC MCH_Adv_LS\\nEQU nStep 30"                 color="#8b949e"]
+    Step40 -> Step50 [label="TON MCH_Dwell_TMR.DN\\nEQU nStep 40"           color="#8b949e"]
+    Step50 -> Step60 [label="XIC MCH_Ret_LS\\nEQU nStep 50"                 color="#8b949e"]
+    Step60 -> Step70 [label="TON MCH_Unclamp_TMR.DN\\nEQU nStep 60"         color="#8b949e"]
+    Step70 -> Step0  [label="XIC MCH_Home_SW\\nEQU nStep 70"                color="#3fb950" penwidth=1.5]
+
+    Start_PB -> Step0  [label="XIC MCH_Start_PB" color="#3fb950" penwidth=1.5 style=dashed]
+    Home_SW  -> Step0  [label="XIC MCH_Home_SW"  color="#3fb950" penwidth=1.5 style=dashed]
+    Part_SW  -> Step20 [label="XIC MCH_Part_SW"  color="#8b949e" style=dashed]
+    Adv_LS   -> Step40 [label="XIC MCH_Adv_LS"   color="#8b949e" style=dashed]
+    Ret_LS   -> Step60 [label="XIC MCH_Ret_LS"   color="#8b949e" style=dashed]
+
+    Step30 -> StepFault [label="MCH_Adv_TMR.ERR\\nOVERTIME" color="#da3633" style=dotted penwidth=1.5]
+    Step50 -> StepFault [label="MCH_Ret_TMR.ERR\\nOVERTIME" color="#da3633" style=dotted penwidth=1.5]
+
+    StepFault -> Step0 [label="XIC bFaultReset\\nOTU bFaulted\\nMOV 0 nStep" color="#388bfd" style=dashed penwidth=1.5]
+    HMI_Reset -> StepFault [label="bFaultReset" color="#79c0ff" style=dashed]
+
+    Step20 -> Clamp_OTE   [label="OTL MCH_Clamp" color="#3fb950" penwidth=1.5]
+    Step60 -> Clamp_OTE   [label="OTU MCH_Clamp" color="#8b949e" style=dashed]
+    Step30 -> Advance_OTE [label="OTE MCH_Adv"   color="#3fb950" penwidth=1.5]
+    Step50 -> Retract_OTE [label="OTE MCH_Ret"   color="#3fb950" penwidth=1.5]
+    StepFault -> FaultLight [label="OTE MCH_Fault" color="#da3633" penwidth=1.5]
+
+    Step0     -> HMI_Step  [label="MOV nStep nStep_HMI"      color="#79c0ff" style=dashed]
+    StepFault -> HMI_Fault [label="MOV nFaultCode nFault_HMI" color="#79c0ff" style=dashed]
+}`
+};
+
+async function initViz() {
+  try {
+    viz = await instance();
+    document.getElementById('dot-editor').value = DIAGRAMS.main;
+    setStatus('Graphviz engine loaded. Rendering...', '');
+    await renderDot();
+  } catch(e) {
+    setStatus('Failed to load viz.js: ' + e.message, 'error');
+  }
+}
+
+window.renderDot = async function() {
+  if (!viz) { setStatus('Engine not ready', 'error'); return; }
+  const dot = document.getElementById('dot-editor').value.trim();
+  if (!dot) return;
+  setStatus('<span class="spinner"></span>Rendering...', '');
+  try {
+    const svgStr = viz.renderString(dot, { format: 'svg' });
+    const container = document.getElementById('svg-container');
+    container.innerHTML = svgStr;
+    const svg = container.querySelector('svg');
+    if (svg) {
+      svg.removeAttribute('width');
+      svg.removeAttribute('height');
+      svg.style.minWidth = '400px';
+      svg.querySelectorAll('text').forEach(t => {
+        if (!t.getAttribute('fill') || t.getAttribute('fill') === '#000000') {
+          t.setAttribute('fill', '#e6edf3');
+        }
+      });
+    }
+    resetZoom();
+    fitToScreen();
+    const nodeCount = container.querySelectorAll('.node').length;
+    const edgeCount = container.querySelectorAll('.edge').length;
+    setStatus(nodeCount + ' nodes · ' + edgeCount + ' edges · Ready', 'ok');
+  } catch(e) {
+    setStatus('DOT parse error: ' + e.message, 'error');
+  }
+};
+
+window.loadPreset = function(name) {
+  if (DIAGRAMS[name]) {
+    document.getElementById('dot-editor').value = DIAGRAMS[name];
+    switchTab('editor', document.querySelector('.sidebar-tabs button'));
+    renderDot();
+  }
+};
+
+function applyTransform() {
+  const c = document.getElementById('svg-container');
+  c.style.transform = 'translate(calc(-50% + ' + panX + 'px), calc(-50% + ' + panY + 'px)) scale(' + currentScale + ')';
+  document.getElementById('zoom-level').textContent = Math.round(currentScale * 100) + '%';
+}
+
+window.zoomIn  = () => { currentScale = Math.min(currentScale * 1.2, 8); applyTransform(); };
+window.zoomOut = () => { currentScale = Math.max(currentScale / 1.2, 0.1); applyTransform(); };
+window.resetZoom = () => { currentScale = 1; panX = 0; panY = 0; applyTransform(); };
+window.fitToScreen = function() {
+  const canvas = document.getElementById('canvas');
+  const svg = document.querySelector('#svg-container svg');
+  if (!svg) return;
+  const vb = svg.viewBox.baseVal;
+  if (!vb || vb.width === 0) return;
+  const scaleX = (canvas.clientWidth  - 60) / vb.width;
+  const scaleY = (canvas.clientHeight - 60) / vb.height;
+  currentScale = Math.min(scaleX, scaleY, 2);
+  panX = 0; panY = 0;
+  applyTransform();
+};
+
+document.getElementById('canvas').addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  currentScale = Math.min(Math.max(currentScale * factor, 0.1), 8);
+  applyTransform();
+}, { passive: false });
+
+const canvas = document.getElementById('canvas');
+canvas.addEventListener('mousedown', e => {
+  if (e.target.closest('#svg-container')) {
+    isPanning = true;
+    startX = e.clientX - panX;
+    startY = e.clientY - panY;
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  panX = e.clientX - startX;
+  panY = e.clientY - startY;
+  applyTransform();
+});
+window.addEventListener('mouseup', () => { isPanning = false; });
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA') {
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); renderDot(); }
+    return;
+  }
+  if (e.key === '+' || e.key === '=') zoomIn();
+  if (e.key === '-') zoomOut();
+  if (e.key === 'r' || e.key === 'R') resetZoom();
+  if (e.key === 'f' || e.key === 'F') fitToScreen();
+});
+
+window.exportSVG = function() {
+  const svg = document.querySelector('#svg-container svg');
+  if (!svg) return;
+  const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hunt-plc-machine-step-logic-sequencer.svg';
+  a.click();
+};
+
+window.exportPNG = function() {
+  const svg = document.querySelector('#svg-container svg');
+  if (!svg) return;
+  const vb = svg.viewBox.baseVal;
+  const w = (vb.width || 800) * 2, h = (vb.height || 600) * 2;
+  const cvs = document.createElement('canvas');
+  cvs.width = w; cvs.height = h;
+  const ctx = cvs.getContext('2d');
+  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, w, h);
+  const img = new Image();
+  const svgData = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, w, h);
+    const a = document.createElement('a');
+    a.href = cvs.toDataURL('image/png');
+    a.download = 'hunt-plc-machine-step-logic-sequencer.png';
+    a.click();
+  };
+  img.src = URL.createObjectURL(svgData);
+};
+
+window.switchTab = function(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+};
+
+function setStatus(msg, cls) {
+  const s = document.getElementById('status-text');
+  s.innerHTML = msg;
+  document.getElementById('status').className = cls;
+}
+
+initViz();
+</script>
+</body>
+</html>
